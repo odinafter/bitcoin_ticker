@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:bitcoin_ticker/coin_data.dart';
 import 'package:flutter/cupertino.dart';
+import 'dart:io' show Platform;
+import 'package:bitcoin_ticker/test.dart';
 
 class PriceScreen extends StatefulWidget {
   @override
@@ -8,8 +10,19 @@ class PriceScreen extends StatefulWidget {
 }
 
 class _PriceScreenState extends State<PriceScreen> {
+  // var ETHData;
+  // Future<dynamic> getETHData() async {
+  //   CoinData coinData = CoinData();
+  //   var exchangeData = await coinData.getCoinData(
+  //     Uri.tryParse('$coinExchangeDataURL/ETH/$selectedCurrency?apikey=$apiKey'),
+  //   );
+  //   ETHData = exchangeData;
+  //   return exchangeData;
+  // }
+
   String selectedCurrency = 'USD';
-  List<DropdownMenuItem<String>> getDropdownItem() {
+
+  DropdownButton<String> currencyDropdown() {
     List<DropdownMenuItem<String>> dropdownItem = [];
     for (String currency in currenciesList) {
       // for (int i = 0; i < currenciesList.length; i++) {
@@ -20,21 +33,87 @@ class _PriceScreenState extends State<PriceScreen> {
       );
       dropdownItem.add(newItem);
     }
-    return dropdownItem;
+
+    return DropdownButton<String>(
+      value: selectedCurrency,
+      items: dropdownItem,
+      onChanged: (value) {
+        setState(
+          () {
+            selectedCurrency = value!;
+            getCoinData();
+            // getBTCData();
+            // getETHData();
+          },
+        );
+      },
+    );
   }
 
-  List<Widget> getPickkerItems() {
-    for (String monneyCurrency in currenciesList) {}
-    
+  CupertinoPicker iOSPicker() {
+    List<Text> pickerItem = [];
+    for (String currency in currenciesList) {
+      pickerItem.add(
+        Text(currency),
+      );
+    }
 
-      
-      
+    return CupertinoPicker(
+      backgroundColor: Colors.lightBlue,
+      itemExtent: 32.0,
+      onSelectedItemChanged: (selectedIndex) {
+        setState(() {
+          selectedCurrency = currenciesList[selectedIndex];
+          getCoinData();
+        });
+        print(selectedIndex);
+      },
+      children: pickerItem,
+    );
+  }
+
+  Map<String, String> coinValue = {};
+  bool isWaiting = false;
+
+  void getCoinData() async {
+    isWaiting = true;
+    try {
+      // for (String crypto in cryptoList) {
+      var data = await CoinData().getCoinData(selectedCurrency);
+      isWaiting = false;
+      setState(() {
+        coinValue = data;
+      });
+    } catch (e) {
+      print(e);
     }
   }
 
   @override
+  void initState() {
+    getCoinData();
+    super.initState();
+  }
+
+  Column valueCard() {
+    List<CoinCard> cryptoCards = [];
+    for (String crypto in cryptoList) {
+      cryptoCards.add(
+        CoinCard(
+          coinData: crypto,
+          selectedCurrency: selectedCurrency,
+          value: isWaiting ? '?' : coinValue[crypto],
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: cryptoCards,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    getDropdownItem();
     return Scaffold(
       appBar: AppBar(
         title: Text('🤑 Coin Ticker'),
@@ -43,39 +122,23 @@ class _PriceScreenState extends State<PriceScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Padding(
-            padding: EdgeInsets.fromLTRB(18.0, 18.0, 18.0, 0),
-            child: Card(
-              color: Colors.lightBlueAccent,
-              elevation: 5.0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10.0),
-              ),
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 15.0, horizontal: 28.0),
-                child: Text(
-                  '1 BTC = ? USD',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 20.0,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-          ),
+          valueCard(),
+          // CoinCard(
+          //   coinData: BTCData,
+          //   selectedCurrency: selectedCurrency,
+          //   coinCurrency: 'ETH',
+          // ),
+          // CoinCard(
+          //   coinData: BTCData,
+          //   selectedCurrency: selectedCurrency,
+          //   coinCurrency: cryptoList[2],
+          // ),
           Container(
             height: 150.0,
             alignment: Alignment.center,
             padding: EdgeInsets.only(bottom: 30.0),
             color: Colors.lightBlue,
-            child: CupertinoPicker(
-              itemExtent: 32.0,
-              onSelectedItemChanged: (selectedIndex) {
-                print(selectedIndex);
-              },
-              children: getPickkerItems(),
-            ),
+            child: Platform.isIOS ? iOSPicker() : currencyDropdown(),
           ),
         ],
       ),
@@ -83,12 +146,40 @@ class _PriceScreenState extends State<PriceScreen> {
   }
 }
 
+class CoinCard extends StatelessWidget {
+  CoinCard({
+    Key? key,
+    this.coinData,
+    this.selectedCurrency,
+    this.value,
+  }) : super(key: key);
+  final String? coinData;
+  final String? selectedCurrency;
+  final String? value;
 
-// DropdownButton<String>(
-//                 value: selectedCurrency,
-//                 items: getDropdownItem(),
-//                 onChanged: (value) {
-//                   setState(() {
-//                     selectedCurrency = value!;
-//                   });
-//                 }),
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(18.0, 18.0, 18.0, 0),
+      child: Card(
+        color: Colors.lightBlueAccent,
+        elevation: 5.0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10.0),
+        ),
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 15.0, horizontal: 28.0),
+          child: Text(
+            '1 $coinData = $value $selectedCurrency',
+            // '1 $coinData  = ${coinData != null ? coinData["rate"].toStringAsFixed(2) : '0'} $selectedCurrency',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 20.0,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
